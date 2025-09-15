@@ -50,16 +50,23 @@ public class YandexApiService {
 
             return Map.of("success", true, "response", aiResponse);
         } catch (HttpClientErrorException e) {
-            log.error("Ошибка API YandexGPT: {}", e.getMessage(), e);
+            log.error("❌ Ошибка API YandexGPT: статус={}, ответ={}", e.getStatusCode(), e.getResponseBodyAsString(), e);
             return Map.of("error", "YandexGPT API Error", "message", e.getResponseBodyAsString());
         } catch (Exception e) {
             if (e.getMessage().contains("connect")) {
-                log.error("Не удалось подключиться к API YandexGPT: {}", e.getMessage(), e);
+                log.error("❌ Не удалось подключиться к API YandexGPT: {}", e.getMessage(), e);
                 return Map.of(
                         "error", "Service Unavailable",
                         "message", "Не удалось подключиться к API YandexGPT");
             }
-            log.error("Ошибка при обращении к нейросети: {}", e.getMessage(), e);
+            if (e.getMessage().contains("YANDEX_API_KEY") || e.getMessage().contains("YANDEX_FOLDER_ID")) {
+                log.error("❌ Проблема с конфигурацией YandexGPT: {}", e.getMessage(), e);
+                return Map.of(
+                        "error", "Configuration Error",
+                        "message", e.getMessage(),
+                        "details", "Установите переменные окружения YANDEX_API_KEY и YANDEX_FOLDER_ID");
+            }
+            log.error("❌ Ошибка при обращении к нейросети: {}", e.getMessage(), e);
             return Map.of(
                     "error", "Internal Server Error",
                     "message", "Ошибка при обращении к нейросети",

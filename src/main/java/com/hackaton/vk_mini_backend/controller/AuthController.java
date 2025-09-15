@@ -68,16 +68,36 @@ public class AuthController {
             description = "Авторизация через сервисный ключ VK с указанием ID пользователя")
     public ResponseEntity<JwtResponse> authenticateWithVkServiceAndUserId(
             @Valid @RequestBody VkServiceLoginRequest request) {
+        log.info("Получен запрос авторизации VK для пользователя ID: {}", request.getUserId());
+
         ResponseEntity<JwtResponse> response;
         if (enableServiceLogin) {
             try {
+                log.debug("Сервисный логин включен, выполняю авторизацию для VK пользователя: {}", request.getUserId());
                 JwtResponse jwtResponse = vkAuthService.loginWithVkServiceKeyAndUserId(request.getUserId());
+
+                log.info(
+                        "Авторизация VK успешна для пользователя ID: {}, логин: {}",
+                        request.getUserId(),
+                        jwtResponse.getLogin());
+                log.debug(
+                        "JWT токен для пользователя {}: {}",
+                        jwtResponse.getLogin(),
+                        jwtResponse
+                                        .getToken()
+                                        .substring(
+                                                0,
+                                                Math.min(
+                                                        20,
+                                                        jwtResponse.getToken().length())) + "...");
+
                 response = ResponseEntity.ok(jwtResponse);
             } catch (Exception e) {
                 log.error("Ошибка аутентификации для пользователя VK ID: {}", request.getUserId(), e);
                 response = ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
         } else {
+            log.warn("Сервисный логин отключен, отклоняю запрос для VK пользователя: {}", request.getUserId());
             response = ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         return response;

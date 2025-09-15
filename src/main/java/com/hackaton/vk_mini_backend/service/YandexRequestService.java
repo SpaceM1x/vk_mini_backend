@@ -25,11 +25,35 @@ public class YandexRequestService {
     @Value("${yandex.folder-id}")
     private String folderId;
 
+    @Value("${yandex.mock-mode:false}")
+    private boolean mockMode;
+
     private final RestTemplate restTemplate = new RestTemplate();
 
     public String callYandexGpt(List<MessageDto> messages, double temperature, int maxTokens) throws Exception {
-        if (apiKey == null || folderId == null) {
-            throw new Exception("Не указаны API включи для YandexGPT");
+        log.info("🔧 Проверка конфигурации YandexGPT:");
+        log.info(
+                "🔑 API Key: {}",
+                apiKey != null
+                        ? "установлен (" + apiKey.substring(0, Math.min(8, apiKey.length())) + "...)"
+                        : "НЕ УСТАНОВЛЕН");
+        log.info("📁 Folder ID: {}", folderId != null ? folderId : "НЕ УСТАНОВЛЕН");
+        log.info("🎭 Mock Mode: {}", mockMode);
+
+        // Проверяем, включен ли мок-режим
+        if (mockMode) {
+            log.info("🎭 Используется мок-режим для YandexGPT");
+            return generateMockResponse(messages);
+        }
+
+        if (apiKey == null || apiKey.trim().isEmpty() || apiKey.contains("test-api-key")) {
+            throw new Exception(
+                    "Не указан YANDEX_API_KEY. Установите переменную окружения YANDEX_API_KEY или включите мок-режим (YANDEX_MOCK_MODE=true)");
+        }
+
+        if (folderId == null || folderId.trim().isEmpty() || folderId.contains("test-folder-id")) {
+            throw new Exception(
+                    "Не указан YANDEX_FOLDER_ID. Установите переменную окружения YANDEX_FOLDER_ID или включите мок-режим (YANDEX_MOCK_MODE=true)");
         }
 
         HttpHeaders headers = new HttpHeaders();
@@ -41,10 +65,13 @@ public class YandexRequestService {
         completionOptions.put("temperature", temperature);
         completionOptions.put("maxTokens", maxTokens);
 
+        String modelUri = "gpt://" + folderId + "/yandexgpt/latest";
+        log.info("🤖 Model URI: {}", modelUri);
+
         YandexRequest requestBody = YandexRequest.builder()
                 .messages(messages)
                 .completionOptions(completionOptions)
-                .modelUri("gpt://" + folderId + "/yandexgpt/latest")
+                .modelUri(modelUri)
                 .build();
 
         log.info("🔄 Отправка запроса в YandexGPT");
@@ -82,6 +109,25 @@ public class YandexRequestService {
         } catch (RestClientException e) {
             log.error("❌ Ошибка при запросе в YandexGPT: {}", e.getMessage());
             throw e;
+        }
+    }
+
+    /**
+     * Генерирует мок-ответ для разработки без реального API
+     */
+    private String generateMockResponse(List<MessageDto> messages) {
+        // Определяем тип запроса по содержимому сообщений
+        String lastMessage =
+                messages.isEmpty() ? "" : messages.get(messages.size() - 1).getText();
+
+        if (lastMessage.contains("рекомендации") || lastMessage.contains("курс")) {
+            // Мок-ответ для рекомендаций курсов
+            log.info("🎭 Генерация мок-ответа для рекомендаций курсов");
+            return "[\"course1\", \"course2\", \"course3\"]";
+        } else {
+            // Мок-ответ для чата
+            log.info("🎭 Генерация мок-ответа для чата");
+            return "Это мок-ответ от YandexGPT. Для использования реального API установите переменные окружения YANDEX_API_KEY и YANDEX_FOLDER_ID.";
         }
     }
 }

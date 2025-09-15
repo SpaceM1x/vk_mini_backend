@@ -19,6 +19,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 @EnableMethodSecurity
@@ -62,9 +65,45 @@ public class WebSecurityConfig {
     }
 
     @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        // Разрешаем локальную разработку
+        configuration.addAllowedOrigin("http://localhost:4200");
+
+        // Разрешаем все домены VK Mini Apps
+        configuration.addAllowedOriginPattern("https://*.tunnel.vk-apps.com");
+        configuration.addAllowedOriginPattern("https://*.vk-apps.com");
+        configuration.addAllowedOriginPattern("https://vk.com");
+        configuration.addAllowedOriginPattern("https://*.vk.com");
+
+        // Разрешаем методы HTTP
+        configuration.addAllowedMethod("GET");
+        configuration.addAllowedMethod("POST");
+        configuration.addAllowedMethod("PUT");
+        configuration.addAllowedMethod("DELETE");
+        configuration.addAllowedMethod("OPTIONS");
+        configuration.addAllowedMethod("PATCH");
+
+        // Разрешаем все заголовки
+        configuration.addAllowedHeader("*");
+
+        // Разрешаем отправку cookies и авторизационных заголовков
+        configuration.setAllowCredentials(true);
+
+        // Разрешаем предварительные запросы на 24 часа
+        configuration.setMaxAge(86400L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
+    @Bean
     public SecurityFilterChain filterChain(final HttpSecurity http) {
         try {
             http.csrf(AbstractHttpConfigurer::disable)
+                    .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                     .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
                     .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                     .authorizeHttpRequests(auth -> auth.requestMatchers("/api/auth/**")

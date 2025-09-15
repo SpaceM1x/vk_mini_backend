@@ -60,9 +60,9 @@ public class VkAuthService {
     private String vkApiUrl;
 
     /**
-     * Севрисный ключ VK
+     * Сервисный ключ VK
      */
-    @Value("${vk.service.key}")
+    @Value("${vk.app.service-key}")
     private String vkServiceKey;
 
     /**
@@ -201,12 +201,25 @@ public class VkAuthService {
      * @return Ответ с JWT токенами и информацией о пользователе
      */
     private JwtResponse generateAuthTokens(final ClsUser user) {
+        log.info("Генерация JWT токенов для пользователя: {} (ID: {})", user.getLogin(), user.getId());
+
         String jwt = jwtUtils.generateJwtToken(user.getLogin());
+        log.debug(
+                "JWT токен сгенерирован для пользователя {}: {}",
+                user.getLogin(),
+                jwt.substring(0, Math.min(20, jwt.length())) + "...");
 
         refreshTokenService.deleteByUserId(user.getId());
         RegUserToken rt = refreshTokenService.createRefreshToken(user);
+        log.debug(
+                "Refresh токен создан для пользователя {}: {}",
+                user.getLogin(),
+                rt.getToken().substring(0, Math.min(20, rt.getToken().length())) + "...");
 
-        return new JwtResponse(jwt, rt.getToken(), user.getId(), user.getLogin(), user.getName());
+        JwtResponse response = new JwtResponse(jwt, rt.getToken(), user.getId(), user.getLogin(), user.getName());
+        log.info("Токены успешно сгенерированы для пользователя {} (VK ID: {})", user.getLogin(), user.getId());
+
+        return response;
     }
 
     /**
@@ -253,21 +266,33 @@ public class VkAuthService {
             String url = buildVkApiUrlWithUserId(userId);
 
             log.info("Выполняю запрос к VK API с сервисным ключом для пользователя ID: {}", userId);
+            log.debug("URL запроса к VK API: {}", url.replaceAll("access_token=[^&]+", "access_token=***"));
+
             Map<?, ?> response = restTemplate.getForObject(url, Map.class);
 
             if (response == null) {
                 throw new TokenRefreshException("Пустой ответ от VK API");
             }
 
+            log.debug("Получен ответ от VK API для пользователя {}: {}", userId, response);
+
             if (response.containsKey(ERROR_KEY)) {
                 Map<?, ?> error = (Map<?, ?>) response.get(ERROR_KEY);
                 String errorMsg = error.containsKey(ERROR_MSG_KEY)
                         ? error.get(ERROR_MSG_KEY).toString()
                         : "Неизвестная ошибка";
+                log.error("Ошибка VK API для пользователя {}: {}", userId, errorMsg);
                 throw new TokenRefreshException("Ошибка VK API: " + errorMsg);
             }
 
-            return parseVkResponse(response);
+            Map<?, ?> userData = parseVkResponse(response);
+            log.info(
+                    "Успешно получены данные пользователя VK ID {}: имя={}, фамилия={}",
+                    userId,
+                    userData.get("first_name"),
+                    userData.get("last_name"));
+
+            return userData;
         } catch (Exception e) {
             log.error("Ошибка при запросе к VK API с сервисным ключом для пользователя {}", userId, e);
             TokenRefreshException exception = new TokenRefreshException(
