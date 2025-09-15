@@ -26,7 +26,7 @@ public class ClsLessonController {
     private final ClsLessonService clsLessonService;
 
     @GetMapping("/by-course/{courseId}")
-    @Operation(summary = "Получить список уроков по ID курса")
+    @Operation(summary = "Получить список уроков по id курса")
     public ResponseEntity<List<ClsLesson>> findByCourseId(
             @Parameter(description = "ID курса") @PathVariable Long courseId) {
         ResponseEntity<List<ClsLesson>> responseEntity =
